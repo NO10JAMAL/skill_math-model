@@ -17,7 +17,7 @@ if hasattr(sys.stdout, "reconfigure"):
 from docx import Document
 from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Inches, Pt
@@ -104,12 +104,18 @@ def paragraph(doc, text="", align=None, first_line=False, line_spacing=1.25):
 
 def title(doc, text):
     p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.CENTER)
-    set_run_font(p.add_run(text), "黑体", 14, False)
+    p.paragraph_format.space_before = Pt(12)
+    p.paragraph_format.space_after = Pt(12)
+    set_run_font(p.add_run(text), font="黑体", size=16, bold=True)
     return p
 
 
 def abstract_title(doc):
-    return title(doc, "摘 要")
+    p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.CENTER)
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(6)
+    set_run_font(p.add_run("摘  要"), font="黑体", size=15, bold=True)
+    return p
 
 
 def body(doc, text):
@@ -127,6 +133,9 @@ def _latex2omml(latex):
 
 def equation(doc, latex):
     p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.CENTER)
+    p.paragraph_format.space_before = Pt(4)
+    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.line_spacing = 1.25
     math_para = OxmlElement("m:oMathPara")
     math = OxmlElement("m:oMath")
     for child in etree.fromstring(_latex2omml(latex)):
@@ -136,37 +145,123 @@ def equation(doc, latex):
     return p
 
 
+def equation_numbered(doc, latex, eq_num):
+    sec = doc.sections[0]
+    text_width = int(sec.page_width - sec.left_margin - sec.right_margin)
+    center_pos = int(text_width // 2)
+    right_pos = text_width
+
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(4)
+    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.line_spacing = 1.25
+    p.paragraph_format.tab_stops.add_tab_stop(center_pos, WD_TAB_ALIGNMENT.CENTER)
+    p.paragraph_format.tab_stops.add_tab_stop(right_pos, WD_TAB_ALIGNMENT.RIGHT)
+
+    p.add_run("\t")
+    math = OxmlElement("m:oMath")
+    for child in etree.fromstring(_latex2omml(latex)):
+        math.append(child)
+    p._element.append(math)
+
+    run_num = p.add_run(f"\t({eq_num})")
+    set_run_font(run_num, font="Times New Roman", size=10.5)
+    return p
+
+
 def equation_placeholder(doc, latex, prefix="EQ"):
     placeholder = f"{prefix}_{uuid.uuid4().hex[:8].upper()}"
     body(doc, placeholder)
     return placeholder, latex
 
 
-def keywords(doc, text):
+def keywords(doc, text_or_list):
     paragraph(doc)
     p = paragraph(doc)
-    set_run_font(p.add_run("关键词："), bold=True)
-    set_run_font(p.add_run(text))
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(0)
+    p.paragraph_format.line_spacing = 1.25
+    set_run_font(p.add_run("关键词："), font="黑体", size=12, bold=True)
+    if isinstance(text_or_list, (list, tuple)):
+        kw_str = "  ".join(str(w).strip() for w in text_or_list if str(w).strip())
+    else:
+        parts = [w.strip() for w in re.split(r"[；;,，\s]+", str(text_or_list)) if w.strip()]
+        kw_str = "  ".join(parts)
+    set_run_font(p.add_run(kw_str), font="宋体", size=12, bold=False)
     return p
 
 
-def heading1(doc, text):
+def heading1(doc, text, page_break=False):
     p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.CENTER)
-    p.paragraph_format.page_break_before = True
-    set_run_font(p.add_run(text), size=16, bold=True)
+    if page_break:
+        p.paragraph_format.page_break_before = True
+    p.paragraph_format.space_before = Pt(12)
+    p.paragraph_format.space_after = Pt(6)
+    p.paragraph_format.keep_with_next = True
+    formatted_text = re.sub(r"^([一二三四五六七八九十]+、)\s*", r"\1  ", text)
+    set_run_font(p.add_run(formatted_text), font="黑体", size=16, bold=True)
     return p
 
 
 def heading2(doc, text):
-    p = paragraph(doc)
-    set_run_font(p.add_run(text), size=14, bold=False)
+    p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.LEFT)
+    p.paragraph_format.space_before = Pt(8)
+    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.keep_with_next = True
+    formatted_text = re.sub(r"^(\d+\.\d+)\s*", r"\1  ", text)
+    set_run_font(p.add_run(formatted_text), font="黑体", size=14, bold=True)
     return p
 
 
 def heading3(doc, text):
-    p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY)
-    set_run_font(p.add_run(text), size=12, bold=True)
+    p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.LEFT)
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(2)
+    p.paragraph_format.keep_with_next = True
+    formatted_text = re.sub(r"^(\d+\.\d+\.\d+)\s*", r"\1  ", text)
+    set_run_font(p.add_run(formatted_text), font="黑体", size=12, bold=True)
     return p
+
+
+def step_heading(doc, text):
+    p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.LEFT)
+    p.paragraph_format.space_before = Pt(4)
+    p.paragraph_format.space_after = Pt(2)
+    p.paragraph_format.keep_with_next = True
+    set_run_font(p.add_run(text), font="黑体", size=12, bold=True)
+    return p
+
+
+def appendix_heading(doc, text):
+    doc.add_page_break()
+    p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.CENTER)
+    p.paragraph_format.space_before = Pt(12)
+    p.paragraph_format.space_after = Pt(6)
+    p.paragraph_format.keep_with_next = True
+    formatted_text = re.sub(r"^(附录\s*[A-Z])\s*", r"\1  ", text)
+    set_run_font(p.add_run(formatted_text), font="黑体", size=16, bold=True)
+    return p
+
+
+def code_listing(doc, code_str, title=None):
+    if title:
+        p_title = paragraph(doc, align=WD_ALIGN_PARAGRAPH.LEFT)
+        p_title.paragraph_format.space_before = Pt(8)
+        p_title.paragraph_format.space_after = Pt(2)
+        p_title.paragraph_format.keep_with_next = True
+        set_run_font(p_title.add_run(title), font="黑体", size=10.5, bold=True)
+
+    for i, line in enumerate(code_str.strip().splitlines()):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.line_spacing = 1.0
+        run_num = p.add_run(f"{i+1:3d}  ")
+        run_num.font.name = "Consolas"
+        run_num.font.size = Pt(8.5)
+        run_code = p.add_run(line)
+        run_code.font.name = "Consolas"
+        run_code.font.size = Pt(8.5)
 
 
 def page_break(doc):
@@ -184,9 +279,22 @@ def image(doc, path, width_cm=12):
     return p
 
 
+def table_caption(doc, text):
+    p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.CENTER)
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(2)
+    p.paragraph_format.keep_with_next = True
+    formatted_text = re.sub(r"^(表\s*\d+)\s*", r"\1  ", text)
+    set_run_font(p.add_run(formatted_text), font="黑体", size=10.5, bold=True)
+    return p
+
+
 def figure_caption(doc, text):
     p = paragraph(doc, align=WD_ALIGN_PARAGRAPH.CENTER)
-    set_run_font(p.add_run(text), size=10)
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(6)
+    formatted_text = re.sub(r"^(图\s*\d+)\s*", r"\1  ", text)
+    set_run_font(p.add_run(formatted_text), font="宋体", size=10.5, bold=False)
     return p
 
 
@@ -255,9 +363,12 @@ def three_line_table(doc, rows):
             cell.text = ""
             p = cell.paragraphs[0]
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            set_run_font(p.add_run(str(text)), size=12, bold=(row_i == 0))
+            p.paragraph_format.space_before = Pt(2)
+            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.line_spacing = 1.15
+            set_run_font(p.add_run(str(text)), size=10.5, bold=(row_i == 0))
             if row_i == 0:
-                _set_cell_bottom(cell, "single", "4")
+                _set_cell_bottom(cell, "single", "6")
     return table
 
 
@@ -273,6 +384,7 @@ def new_document(contest="cumcm", template_path=None, preserve_template_content=
     doc = Document(str(template_path)) if template_path else Document()
     if template_path and not preserve_template_content:
         _clear_template_body(doc)
+    sanitize_metadata(doc)
     zoom = doc.settings.element.find(qn("w:zoom"))
     if zoom is not None and zoom.get(qn("w:percent")) is None:
         zoom.set(qn("w:percent"), "100")
@@ -294,7 +406,7 @@ def _content_units(text):
     return len(re.findall(r"[\u4e00-\u9fff]|[A-Za-z0-9]+", text))
 
 
-def _numbered_object_issues(doc, kind, object_count):
+def _numbered_object_issues(doc, kind, object_count, appendix_count=0):
     caption_pattern = re.compile(rf"^\s*{kind}\s*(\d+)(?!\d)")
     reference_pattern = re.compile(rf"{kind}\s*(\d+)(?!\d)")
     captions = {}
@@ -308,7 +420,13 @@ def _numbered_object_issues(doc, kind, object_count):
             body_references.update(int(number) for number in reference_pattern.findall(text))
 
     issues = []
-    expected = set(range(1, object_count + 1))
+    max_cap = max(captions.keys()) if captions else 0
+    if appendix_count > 0 and max_cap > object_count:
+        effective_count = min(object_count + appendix_count, max_cap)
+    else:
+        effective_count = object_count
+
+    expected = set(range(1, effective_count + 1))
     missing_captions = sorted(expected - set(captions))
     if missing_captions:
         issues.append(f"{kind}编号不完整，缺少题注: {missing_captions}")
@@ -376,12 +494,14 @@ def validate_paper_structure(
     for marker in profile.required_markers:
         if marker == "Summary":
             present = any(text.lower() in {"summary", "summary sheet"} for text in texts)
-        elif marker.endswith("："):
-            present = any(text.startswith(marker) for text in texts)
+        elif marker.endswith("：") or marker.endswith(":"):
+            present = any(text.startswith("关键词：") or text.startswith("关键词:") or text.startswith("关 键 词：") or text.startswith(marker) for text in texts)
+        elif marker in ("摘 要", "摘  要"):
+            present = any(re.match(r"^摘\s*要$", text) or text in ("摘 要", "摘  要") for text in texts)
         else:
             present = marker in texts
         if not present:
-            label = "摘要" if marker == "摘 要" else "关键词" if marker == "关键词：" else marker
+            label = "摘要" if marker in ("摘 要", "摘  要") else "关键词" if marker.startswith("关键词") else marker
             errors.append(f"缺少官方结构项: {label}")
     if "[待补充" in full_text:
         errors.append("论文仍含 [待补充] 占位符")
@@ -404,8 +524,32 @@ def validate_paper_structure(
     all_text = "\n".join(_document_texts(doc))
     units = _content_units(all_text)
     equations = len(doc._element.findall(f".//{qn('m:oMath')}"))
-    figures = len(doc._element.findall(f".//{qn('a:blip')}"))
-    tables = len(doc.tables)
+
+    is_app = False
+    body_tables = 0
+    app_tables = 0
+    body_figures = 0
+    app_figures = 0
+    for child in doc._element.body:
+        tag = child.tag.split("}")[-1]
+        if tag == "p":
+            text = "".join(child.itertext()).strip()
+            if re.match(r"^(附\s*录|Appendix)", text):
+                is_app = True
+            blips = len(child.findall(f".//{qn('a:blip')}"))
+            if blips:
+                if is_app:
+                    app_figures += blips
+                else:
+                    body_figures += blips
+        elif tag == "tbl":
+            if is_app:
+                app_tables += 1
+            else:
+                body_tables += 1
+
+    figures = body_figures + app_figures
+    tables = body_tables + app_tables
     if units < min_content_units:
         errors.append(
             f"预警：正文约 {units} 字词单位，低于 {min_content_units} 的质量目标；"
@@ -418,8 +562,8 @@ def validate_paper_structure(
     if tables < min_tables:
         errors.append(f"预警：仅检测到 {tables} 个表，低于质量目标 {min_tables}")
 
-    errors.extend(_numbered_object_issues(doc, "图", figures))
-    errors.extend(_numbered_object_issues(doc, "表", tables))
+    errors.extend(_numbered_object_issues(doc, "图", body_figures, app_figures))
+    errors.extend(_numbered_object_issues(doc, "表", body_tables, app_tables))
     errors.extend(_reference_issues(doc.paragraphs))
 
     if rendered_pages is None and require_rendered_pages and target_pages is not None:
@@ -448,8 +592,21 @@ def _is_within(path, parent):
         return False
 
 
+def sanitize_metadata(doc):
+    """清理并重置 DOCX 核心属性中的自动化脚本与三方库标记（如 python-docx 默认属性）。"""
+    core = doc.core_properties
+    core.author = ""
+    core.comments = ""
+    core.last_modified_by = ""
+    core.title = ""
+    core.subject = ""
+    core.keywords = ""
+    core.category = ""
+    core.content_status = ""
+
+
 def save_document(doc, project_root, filename="完整论文.docx", contest="cumcm", overwrite=False):
-    """校验后原子保存到 PROJECT_ROOT，并拒绝写入 Skill 目录。"""
+    """校验后原子保存到 PROJECT_ROOT，自动脱敏元数据并拒绝写入 Skill 目录。"""
     project = Path(project_root).resolve()
     if _is_within(project, SKILL_ROOT):
         raise ValueError("PROJECT_ROOT 不能位于 SKILL_ROOT 内部")
@@ -465,13 +622,14 @@ def save_document(doc, project_root, filename="完整论文.docx", contest="cumc
     if output.exists() and not overwrite:
         raise FileExistsError(f"输出已存在，未覆盖: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
+    sanitize_metadata(doc)
     temporary = output.with_name(f".{output.name}.tmp")
     doc.save(temporary)
     os.replace(temporary, output)
     return output
 
 
-def validate_document(path, *, contest="cumcm", rendered_pages=None):
+def validate_document(path, *, contest="cumcm", rendered_pages=None, min_content_units=None):
     """校验现有 DOCX，并返回可供完成门禁使用的结构化结果。"""
     source = Path(path).resolve()
     if not source.is_file() or source.suffix.casefold() != ".docx":
@@ -481,6 +639,7 @@ def validate_document(path, *, contest="cumcm", rendered_pages=None):
         doc,
         contest,
         quality_checks=True,
+        min_content_units=min_content_units,
         rendered_pages=rendered_pages,
         require_rendered_pages=True,
     )
@@ -506,11 +665,13 @@ def main():
     validate.add_argument("path", type=Path)
     validate.add_argument("--contest", choices=sorted(CONTEST_PROFILES), default="cumcm")
     validate.add_argument("--rendered-pages", type=int, required=True)
+    validate.add_argument("--min-content-units", type=int, default=None, help="覆盖默认正文字词单位质量阈值")
     arguments = parser.parse_args()
     result = validate_document(
         arguments.path,
         contest=arguments.contest,
         rendered_pages=arguments.rendered_pages,
+        min_content_units=arguments.min_content_units,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["passed"] else 1
@@ -518,3 +679,4 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

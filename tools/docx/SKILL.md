@@ -29,14 +29,29 @@ doc = pf.new_document(
     template_path=Path("<PROJECT_ROOT>") / "当届官方模板.docx",
     preserve_template_content=False,
 )
-# 此示例只借用模板样式后追加正文。
-# 若官方模板包含固定摘要页或编号页，应改为 True 并在原位置填充。
+# 此示例展示对齐国一（C132 范本）排版的完整流程。
 pf.title(doc, "论文题目")
 pf.abstract_title(doc)
-pf.body(doc, "摘要正文。")
-pf.keywords(doc, "优化；预测")
-pf.equation(doc, r"\min f(x)=\sum_{i=1}^{n}x_i^2")
-pf.three_line_table(doc, [["符号", "说明"], ["x", "决策变量"]])
+pf.body(doc, "针对问题一，提出基于多目标规划与 NSGA-II 算法的最优求解方案。")
+pf.keywords(doc, ["随机森林", "多目标规划", "NSGA-II", "灵敏度分析"]) # 词间双空格分隔，严禁分号
+pf.page_break(doc) # 摘要独立分页
+
+pf.heading1(doc, "一、  问题重述")
+pf.body(doc, "正文内容顺延排版，无需强制每章分页……")
+
+pf.heading1(doc, "四、  符号说明")
+pf.table_caption(doc, "表 1  主要符号及其物理意义") # 表格上方居中题注
+pf.three_line_table(doc, [["符号", "单位", "说明"], ["x_i", "kg", "原料消耗量"]])
+
+pf.heading1(doc, "六、  问题一的模型建立与求解")
+# 公式居中，编号 (1) 贴紧右侧页边距
+pf.equation_numbered(doc, r"\min f(x)=\sum_{i=1}^{n}x_i^2", eq_num="1")
+pf.figure_caption(doc, "图 1  求解流程示意图") # 图片下方居中题注
+
+pf.appendix_heading(doc, "附录 A  文件列表") # 附录独立分页居中
+pf.appendix_heading(doc, "附录 B  代码")
+pf.code_listing(doc, "import numpy as np\n...", title="代码清单 B.1: 优化算法主入口")
+
 pf.save_document(doc, Path("<PROJECT_ROOT>"), contest="cumcm")
 ```
 

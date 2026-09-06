@@ -56,7 +56,7 @@ def check_three_line_table():
         fmt.abstract_title(doc)
         fmt.body(doc, "摘要正文。")
         fmt.keywords(doc, "优化；预测")
-        fmt.heading1(doc, "一、问题重述")
+        fmt.heading1(doc, "一、问题重述", page_break=True)
         fmt.heading2(doc, "1.1 问题背景")
         fmt.body(doc, "这是正文。")
         assert fmt.count_chinese_chars(doc) >= 6
@@ -78,12 +78,12 @@ def check_three_line_table():
         keyword_paras = document.xpath("//w:p[.//w:t='关键词：']", namespaces={"w": W_NS})
         assert keyword_paras and not "".join(keyword_paras[0].getprevious().xpath(".//w:t/text()", namespaces={"w": W_NS}))
         chapter_break = document.xpath(
-            "//w:p[.//w:t='一、问题重述']/w:pPr/w:pageBreakBefore",
+            "//w:p[contains(.//w:t, '一、') and contains(.//w:t, '问题重述')]/w:pPr/w:pageBreakBefore",
             namespaces={"w": W_NS},
         )
         assert chapter_break
         heading2_size = document.xpath(
-            "//w:p[.//w:t='1.1 问题背景']//w:sz/@w:val",
+            "//w:p[contains(.//w:t, '1.1') and contains(.//w:t, '问题背景')]//w:sz/@w:val",
             namespaces={"w": W_NS},
         )
         assert heading2_size == ["28"]

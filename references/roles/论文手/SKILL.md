@@ -68,6 +68,7 @@ description: 根据题目、建模分析和真实代码结果生成完整 Word �
 ```powershell
 python "<SKILL_ROOT>/tools/docx/scripts/paper_format.py" validate "<PROJECT_ROOT>/完整论文.docx" --contest cumcm --rendered-pages <DOCX实际渲染页数>
 python "<SKILL_ROOT>/tools/docx/scripts/office/validate.py" "<PROJECT_ROOT>/完整论文.docx"
+python "<SKILL_ROOT>/tools/docx/scripts/ai_style_audit.py" "<PROJECT_ROOT>/完整论文.docx"
 python "<SKILL_ROOT>/tools/docx/scripts/equations.py" verify-conversion "<PROJECT_ROOT>/完整论文.docx"
 ```
 
