@@ -2,6 +2,28 @@
 
 当前公开版本从 `1.0.0` 重新建立版本基线。根目录 `VERSION` 是当前版本的唯一准据。
 
+## [1.2.0-c132] - 2026-09-06 (NO10JAMAL 增强版)
+
+### 对齐 2025 C132 国一优秀论文排版规范与 AI 风格审计
+
+- **标杆版式重构（以 2025 C132 国一范本为准）**：
+  - `tools/docx/scripts/paper_format.py`：
+    - 新增 `equation_numbered()`：利用 Word 原生双制表位实现 OMML 公式居中且编号 `(1)` 紧贴右侧页边距，废弃隐形表格避免校验误判。
+    - 新增 `table_caption()` 与优化 `figure_caption()`：表格题注置于上方居中（加粗黑体 10.5pt），图片题注置于下方居中（宋体 10.5pt）。
+    - 优化 `three_line_table()`：单元格文字字号改为五号（10.5pt），行距 1.15 倍，段前段后 2pt 紧凑排版。
+    - 新增 `appendix_heading()` 与 `code_listing()`：支持附录独立分页居中与等宽代码清单（Consolas 8.5pt）。
+    - 优化 `heading1`、`heading2`、`heading3`、`keywords` 与结构校验，支持中文章节双空格序号、关键词双半角空格免分号。
+    - 智能区分正文图表与附录对象，附录表格（如文件列表）不再误报缺少正文题注。
+- **新增 AI 风格审计与元数据脱敏**：
+  - 新增 `tools/docx/scripts/ai_style_audit.py`：检测极端套话、文学化隐喻、句式匀速平滑度（突发度）。
+  - `save_document()` 默认自动执行元数据脱敏（`sanitize_metadata`），清除第三方脚本标记。
+- **规范与文档更新**：
+  - `写作规范.md`：新增第四节“标杆国一论文版式架构与视觉规范（以 2025 C132 国一论文为范本）”。
+  - `章节模板.md`：升级推荐结构为国一标杆“大十段式”。
+  - `论文格式规范.md` 与 `tools/docx/SKILL.md`：更新对齐 C132 的最新 API 代码示例。
+- **测试与验证**：
+  - `tools/docx/scripts/self_check.py` 适配更新，全套单元测试 `self_check OK`（退出码 0）。
+
 ## 未发布
 
 ### 完善算法资料与建模方法论
